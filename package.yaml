@@ -21,6 +21,12 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- network
+- sqlite-simple
+- text
+- bytestring
+- raw-strings-qq
+- utf8-string
 
 library:
   source-dirs: src
@@ -35,7 +41,16 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - fingerd-aaz
-
+  fingerd-debug:
+    main:                Echo.hs
+    source-dirs:         app2
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - fingerd-aaz
+    
 tests:
   fingerd-aaz-test:
     main:                Spec.hs
