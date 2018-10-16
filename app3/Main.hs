@@ -16,24 +16,23 @@ import qualified Database.SQLite.Simple as SQLite
 import Database.SQLite.Simple.Types
 import Network.Socket hiding (close, recv)
 
-import User
 import Data.Aeson
 import Data.Aeson.Text
+
+import User
+import Db
 
 data MySession = EmptySession
 data MyAppState = DummyAppState (IORef Int)
 
 main :: IO ()
-main =
+main =   
     do ref <- newIORef 0
        spockCfg <- defaultSpockCfg EmptySession PCNoDatabase (DummyAppState ref)
        runSpock 8090 (spock spockCfg app)
 
--- extractUserFromBody :: ActionCtxT ctx IO (Maybe User) -- //T T.Text IO Maybe User
--- extractUserFromBody = do
---   b <- body
---   let user = (decodeStrict b) :: Maybe User
---   return user
+extractUserFromBody :: MonadIO m => ActionT m (Maybe User)
+extractUserFromBody = decodeStrict <$> body
 
 app :: SpockM () MySession MyAppState ()
 app =
@@ -44,16 +43,20 @@ app =
          conn <- liftIO $ open "finger.db"
          users <- liftIO $ getUsers conn
          liftIO $ SQLite.close conn
-         let serialized = encodeStrict users
-         -- text $ T.pack $ BS.unpack
-         bytes  serialized
+         let serialized = encode users
+         bytes $ BS.toStrict serialized <> "\n"
        get ("hello" <//> var) $ \name ->
            do (DummyAppState ref) <- getState
               visitorNumber <- liftIO $ atomicModifyIORef' ref $ \i -> (i+1, i+1)
               text ("Hello " <> name <> ", you are visitor number " <> T.pack (show visitorNumber))
        post ("/adduser/" <//> var) $ \name ->
          do
---           extractUserFromBody
---           b <- body
---           user <- liftIO $ (decodeStrict b) :: Maybe User
-           text "Success"
+           maybeUser <- extractUserFromBody
+           case maybeUser of
+             Nothing -> do
+               text $ "No user data found in body for" <> name <> "\n"
+               return ()
+             Just user -> do
+               liftIO $ withDb (addUser user)
+               text $ "Success: " <> name <> "\n"
+               return ()

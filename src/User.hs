@@ -104,3 +104,6 @@ getUsers conn = do
   results <- query conn allUsers ()
   return results
 
+addUser :: User -> Connection -> IO ()
+addUser user connection =
+  execute connection insertUser user
